@@ -24,7 +24,7 @@ mp_hands = mp.solutions.hands
 font = cv2.FONT_HERSHEY_SIMPLEX
 
 # Setup IP and Port for OSC transmission
-ip = "192.168.1.208"
+ip = "127.0.0.1"
 port = 1234
 
 # Initialize UDPClient to send OSC Messages
@@ -37,18 +37,21 @@ new_frame_time = 0
 # Initialize webcam feed
 cap = cv2.VideoCapture(0)
 # Set the width, height and FPS
-camWidth = 1280
-camHeight = 720
-fps = 30
+camWidth = 800
+camHeight = 600
+fps = 60
 cap.set(3, camWidth)
 cap.set(4, camHeight)
-cap.set(5, fps)
+#cap.set(5, fps)
+
+#enable video compression (probably jpg)
+cap.set(cv2.CAP_PROP_FORMAT, 0)
 
 # Create array holding the points to base the transformation of the screen on
 points = []
 
 # Colors for hands
-colors = [(250, 44, 250), (250, 44, 0), (0, 44, 250)]
+colors = [(250, 44, 250), (250, 44, 0), (0, 44, 250), (255, 44, 255)]
 
 click = False
 
@@ -65,18 +68,18 @@ def drawRect(event, x, y, flags, param):
 ### Program loop ###
 ####################
 
-def checkplayerposition(x, y):
+def checkplayerposition(x, y, address):
     if 0 <= x <= 0.25 and 0 <= y <= 1:
-        return "/player1"
+        return address + "1"
     elif 0.75 <= x <= 1 and 0 <= y <= 1:
-        return "/player2"
+        return address + "2"
     elif 0.25 <= x <= 0.75 and 0 <= y <= 0.5:
-        return "/player3"
+        return address + "3"
     elif 0.25 <= x <= 0.75 and 0.5 <= y <= 1:
-        return "/player4"
+        return address + "4"
 
 
-with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, max_num_hands=4) as hands:
+with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, max_num_hands=4, model_complexity=0) as hands:
     while cap.isOpened():
 
         ret, frame = cap.read()
@@ -127,10 +130,13 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                     if indexPos[0] - tolerance <= thumbX <= indexPos[0] + tolerance \
                             and indexPos[1] - tolerance <= thumbY <= indexPos[1] + tolerance:
                         cv2.putText(image, 'Click', (10, 90), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
-                        click = True;
+                        click = True
+                    else:
+                        click = False
 
-                    playerOSCAddress = checkplayerposition(indexPos[0], indexPos[1])
+                    playerOSCAddress = checkplayerposition(indexPos[0], indexPos[1], "/player")
                     client.send_message(playerOSCAddress, indexPos)
+                    playerOSCAddress = checkplayerposition(indexPos[0], indexPos[1], "/click")
                     client.send_message(playerOSCAddress, click)
                     print(str(playerOSCAddress) + ": " + str(indexPos[0]) + ", " + str(indexPos[1]) + ", " + str(click))
 
@@ -156,7 +162,7 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                 cv2.putText(image, fps, (7, 70), font, 3, (100, 255, 0), 3, cv2.LINE_AA)
 
             cv2.imshow("Webcam Feed", image)
-            key = cv2.waitKey(1) & 0xFF
+            key = cv2.waitKey(10) & 0xFF
             cv2.setMouseCallback("Webcam Feed", drawRect)
             if key == ord('q'):
                 break
