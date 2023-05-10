@@ -42,6 +42,8 @@ camHeight = 600
 fps = 60
 cap.set(3, camWidth)
 cap.set(4, camHeight)
+cv2.namedWindow("Webcam Feed", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("Webcam Feed", camWidth, camHeight)
 #cap.set(5, fps)
 
 #enable video compression (probably jpg)
