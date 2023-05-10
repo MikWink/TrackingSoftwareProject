@@ -6,6 +6,7 @@
 # pip install numpy
 # pip install python-osc
 
+import time
 import mediapipe as mp
 import cv2
 import numpy as np
@@ -29,6 +30,9 @@ port = 1234
 # Initialize UDPClient to send OSC Messages
 client = SimpleUDPClient(ip, port)
 
+# Timevariables to check Framerate
+prev_frame_time = 0
+new_frame_time = 0
 
 # Initialize webcam feed
 cap = cv2.VideoCapture(0)
@@ -107,6 +111,28 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                         client.send_message("/click", True)
 
                     client.send_message("/boardgame", indexPos)
+
+                # time when we finish processing for this frame
+                new_frame_time = time.time()
+
+                # Calculating the fps
+
+                # fps will be number of frame processed in given time frame
+                # since their will be most of time error of 0.001 second
+                # we will be subtracting it to get more accurate result
+                fps = 1 / (new_frame_time - prev_frame_time)
+                prev_frame_time = new_frame_time
+
+                # converting the fps into integer
+                fps = int(fps)
+                print(fps)
+
+                # converting the fps to string so that we can display it on frame
+                # by using putText function
+                fps = str(fps)
+
+                # putting the FPS count on the frame
+                cv2.putText(image, fps, (7, 70), font, 3, (100, 255, 0), 3, cv2.LINE_AA)
 
             cv2.imshow("Webcam Feed", image)
             key = cv2.waitKey(1) & 0xFF
