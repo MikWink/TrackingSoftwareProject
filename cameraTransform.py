@@ -35,19 +35,22 @@ prev_frame_time = 0
 new_frame_time = 0
 
 # Initialize webcam feed
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 # Set the width, height and FPS
-camWidth = 800
-camHeight = 600
+camWidth = 1280
+camHeight = 720
 fps = 60
-cap.set(3, camWidth)
-cap.set(4, camHeight)
+cap.set(cv2.CAP_PROP_FPS, fps)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, camWidth)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camHeight)
 cv2.namedWindow("Webcam Feed", cv2.WINDOW_NORMAL)
 cv2.resizeWindow("Webcam Feed", camWidth, camHeight)
-#cap.set(5, fps)
+#cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
 
 #enable video compression (probably jpg)
 cap.set(cv2.CAP_PROP_FORMAT, 0)
+
+cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
 # Create array holding the points to base the transformation of the screen on
 points = []
@@ -71,13 +74,13 @@ def drawRect(event, x, y, flags, param):
 ####################
 
 def checkplayerposition(x, y, address):
-    if 0 <= x <= 0.25 and 0 <= y <= 1:
+    if 0 <= x <= 0.4 and 0 <= y <= 1:
         return address + "1"
-    elif 0.75 <= x <= 1 and 0 <= y <= 1:
+    elif 0.6 <= x <= 1 and 0 <= y <= 1:
         return address + "2"
-    elif 0.25 <= x <= 0.75 and 0 <= y <= 0.5:
+    elif 0.4 <= x <= 0.6 and 0 <= y <= 0.5:
         return address + "3"
-    elif 0.25 <= x <= 0.75 and 0.5 <= y <= 1:
+    elif 0.4 <= x <= 0.6 and 0.5 <= y <= 1:
         return address + "4"
 
 
@@ -85,7 +88,8 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
     while cap.isOpened():
 
         ret, frame = cap.read()
-        if ret:
+
+        if(ret):
             if len(points) == 4:
                 src_points = []
                 dst_points = []
@@ -102,6 +106,7 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # Set flag
             image.flags.writeable = False
+            image = cv2.resize(image, (int(800*16/9), 800))
             # Detections
             results = hands.process(image)
             # Set flag to true
@@ -137,31 +142,33 @@ with mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.5, m
                         click = False
 
                     playerOSCAddress = checkplayerposition(indexPos[0], indexPos[1], "/player")
+                    OSCAddress = "/player" + str(num + 1)
                     client.send_message(playerOSCAddress, indexPos)
                     playerOSCAddress = checkplayerposition(indexPos[0], indexPos[1], "/click")
+                    OSCAddress = "/click" + str(num + 1)
                     client.send_message(playerOSCAddress, click)
                     print(str(playerOSCAddress) + ": " + str(indexPos[0]) + ", " + str(indexPos[1]) + ", " + str(click))
 
-                # time when we finish processing for this frame
-                new_frame_time = time.time()
+            # time when we finish processing for this frame
+            new_frame_time = time.time()
 
-                # Calculating the fps
+            # Calculating the fps
 
-                # fps will be number of frame processed in given time frame
-                # since their will be most of time error of 0.001 second
-                # we will be subtracting it to get more accurate result
-                fps = 1 / (new_frame_time - prev_frame_time)
-                prev_frame_time = new_frame_time
+            # fps will be number of frame processed in given time frame
+            # since their will be most of time error of 0.001 second
+            # we will be subtracting it to get more accurate result
+            fps = 1 / (new_frame_time - prev_frame_time)
+            prev_frame_time = new_frame_time
 
-                # converting the fps into integer
-                fps = int(fps)
+            # converting the fps into integer
+            fps = int(fps)
 
-                # converting the fps to string so that we can display it on frame
-                # by using putText function
-                fps = str(fps)
+            # converting the fps to string so that we can display it on frame
+            # by using putText function
+            fps = str(fps)
 
-                # putting the FPS count on the frame
-                cv2.putText(image, fps, (7, 70), font, 3, (100, 255, 0), 3, cv2.LINE_AA)
+            # putting the FPS count on the frame
+            cv2.putText(image, fps, (7, 70), font, 3, (100, 255, 0), 3, cv2.LINE_AA)
 
             cv2.imshow("Webcam Feed", image)
             key = cv2.waitKey(10) & 0xFF
