@@ -34,7 +34,7 @@ mp_hands = mp.solutions.hands
 font = cv2.FONT_HERSHEY_SIMPLEX
 
 def setup_webcam():
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(0, cv2.CAP_ANY)
     
     fps = 60
     cap.set(cv2.CAP_PROP_FPS, fps)
