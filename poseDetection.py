@@ -24,7 +24,7 @@ points2 = []
 
 
 
-playerOSCAddress = "/0"
+
 
 # Aliases for Mediapipe objects
 mp_drawing = mp.solutions.drawing_utils
