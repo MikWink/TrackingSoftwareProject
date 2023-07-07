@@ -65,15 +65,25 @@ def draw_rect(event, x, y, flags, param):
         param.clear()
         print("Points deleted...")
 
-def check_player_position(x, y, address):
-    if 0 <= x <= 0.4 and 0 <= y <= 1:
-        return address + "1"
-    elif 0.6 <= x <= 1 and 0 <= y <= 1:
-        return address + "2"
-    elif 0.4 <= x <= 0.6 and 0 <= y <= 0.5:
-        return address + "3"
-    elif 0.4 <= x <= 0.6 and 0.5 <= y <= 1:
-        return address + "4"
+
+    
+def map_coordinates_x(x):    
+    result =  (x- 100/ 1280) * 1/(1080/1280) 
+    if result < 0:
+        return 0
+    elif result > 1:
+        return 1
+    else:
+        return result
+
+def map_coordinates_y(y):
+    result = (y- 100/720) * 1/(520/720)
+    if result < 0:
+        return 0
+    elif result > 1:
+        return 1
+    else:
+        return result
 
 
 def process_frame(frame, hands, client, points, prev_frame_time, hand_detected_time):
@@ -88,15 +98,16 @@ def process_frame(frame, hands, client, points, prev_frame_time, hand_detected_t
     tolerance = 0.03
     if results.multi_hand_landmarks:
         for num, hand in enumerate(results.multi_hand_landmarks):
-            mp_drawing.draw_landmarks(image, hand, mp_hands.HAND_CONNECTIONS,
-                                      mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),
-                                      mp_drawing.DrawingSpec(color=colors[num], thickness=2, circle_radius=2))
+            print(num)
+            #mp_drawing.draw_landmarks(image, hand, mp_hands.HAND_CONNECTIONS,
+                                      #mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),
+                                      #amp_drawing.DrawingSpec(color=colors[num], thickness=2, circle_radius=2))
 
             # Save coordinates of the tip of the index finger
             indexPos = [0, 0]
-            indexPos[0] = hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].x
-            indexPos[1] = hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y
-
+            indexPos[0] = map_coordinates_x(hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].x)
+            indexPos[1] = map_coordinates_y(hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y)
+            #print(indexPos)
             # Save coordinates of the tip if the thumb
             thumbX = hand.landmark[mp_hands.HandLandmark.THUMB_TIP].x
             thumbY = hand.landmark[mp_hands.HandLandmark.THUMB_TIP].y
@@ -107,14 +118,11 @@ def process_frame(frame, hands, client, points, prev_frame_time, hand_detected_t
                 click = True
             else:
                 click = False
-
-            playerOSCAddress = check_player_position(indexPos[0], indexPos[1], "/player")
             OSCAddress = "/player" + str(num + 1)
-            client.send_message(playerOSCAddress, indexPos)
-            playerOSCAddress = check_player_position(indexPos[0], indexPos[1], "/click")
+            client.send_message(OSCAddress, indexPos)
             OSCAddress = "/click" + str(num + 1)
-            client.send_message(playerOSCAddress, click)
-            print(str(playerOSCAddress) + ": " + str(indexPos[0]) + ", " + str(indexPos[1]) + ", " + str(click))
+            client.send_message(OSCAddress, click)
+            #print(str(playerOSCAddress) + ": " + str(indexPos[0]) + ", " + str(indexPos[1]) + ", " + str(click))
 
     new_frame_time = time.time()
     fps = 1 / (new_frame_time - prev_frame_time)
@@ -134,26 +142,27 @@ def do_the_handtracking(client):
     hands = initialize_hands()
     
 
-    points2 = []
     cv2.setMouseCallback("Webcam Feed", draw_rect, points2)
     hand_detected_time = time.time()
     while cap.isOpened():
         ret, frame = cap.read()
+        frame = cv2.flip(frame, 0)
         if ret:
             if len(points2) == 4:
                 src_points = []
                 dst_points = []
                 for i in range(4):
                     src_points.append((points2[i][0], points2[i][1]))
-                    dst_points.append((50 if i == 0 or i == 3 else camWidth-50, 50 if i < 2 else camHeight-50))
+                    dst_points.append((100 if i == 0 or i == 3 else camWidth-100, 100 if i < 2 else camHeight-100))
                 transform, _ = cv2.findHomography(np.array(src_points), np.array(dst_points), cv2.RANSAC)
                 frame = cv2.warpPerspective(frame, transform, (camWidth, camHeight))
+                for i in range(len(dst_points)):
+                    cv2.line(frame, dst_points[i], dst_points[(i + 1) % len(dst_points)], (0, 255, 0), 2)
 
-            #frame = cv2.flip(frame, 1)
+            
             prev_frame_time = time.time()
             if process_frame(frame, hands, client, points2, prev_frame_time, hand_detected_time):
                 hand_detected_time = time.time()
-            print(time.time() - hand_detected_time)
             if (time.time() - hand_detected_time) > 10:
                 break 
             
@@ -184,7 +193,7 @@ def main():
         print("Error opening cameras.")
         return
 
-    with mp_pose.Pose(min_detection_confidence=0.8, min_tracking_confidence=0.5) as pose:
+    with mp_pose.Pose(min_detection_confidence=0.95, min_tracking_confidence=0.5) as pose:
         person_detected = False
         close_window1 = False
         close_window2 = False
