@@ -34,7 +34,7 @@ mp_hands = mp.solutions.hands
 font = cv2.FONT_HERSHEY_SIMPLEX
 
 def setup_webcam():
-    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     
     fps = 60
     cap.set(cv2.CAP_PROP_FPS, fps)
@@ -126,14 +126,11 @@ def process_frame(frame, hands, client, points, prev_frame_time, hand_detected_t
     cv2.imshow("Webcam Feed", image)
     return results.multi_hand_landmarks
 
-def do_the_handtracking():
-    # Constants
-    ip = "127.0.0.1"
-    port = 1234
+def do_the_handtracking(client):
+    
 
     # Initialize components
     cap = setup_webcam()
-    client = setup_osc_client(ip, port)
     hands = initialize_hands()
     
 
@@ -148,7 +145,7 @@ def do_the_handtracking():
                 dst_points = []
                 for i in range(4):
                     src_points.append((points2[i][0], points2[i][1]))
-                    dst_points.append((0 if i == 0 or i == 3 else camWidth, 0 if i < 2 else camHeight))
+                    dst_points.append((50 if i == 0 or i == 3 else camWidth-50, 50 if i < 2 else camHeight-50))
                 transform, _ = cv2.findHomography(np.array(src_points), np.array(dst_points), cv2.RANSAC)
                 frame = cv2.warpPerspective(frame, transform, (camWidth, camHeight))
 
@@ -170,10 +167,17 @@ def do_the_handtracking():
     cv2.destroyWindow("Webcam Feed")
 
 def main():
+    # Constants
+    ip = "192.168.178.56"
+    port = 1234
+    
+    client = setup_osc_client(ip, port)
     mp_pose = mp.solutions.pose
 
     # Initialize cameras
-    cap1 = cv2.VideoCapture(0)  # First camera
+    cap1 = cv2.VideoCapture(1)  # First camera
+    cap1.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap1.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
     # Check if cameras are opened successfully
     if not cap1.isOpened():
@@ -203,12 +207,14 @@ def main():
 
             # Show the webcam feed only when a person is detected in the first camera
             if person_detected:
+                client.send_message("/screen0", True)
                 if close_window1:
                     cv2.destroyWindow('Human Detection')
                     close_window1 = False
-                do_the_handtracking()
+                do_the_handtracking(client)
                 close_window2 = True
             else:
+                client.send_message("/screen1", True)
                 if close_window2:
                     close_window2 = False
                 show_webcam_feed('Human Detection', frame1)
@@ -217,6 +223,7 @@ def main():
             # Exit if 'q' is pressed
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+            
 
     # Release the cameras and close windows
     cap1.release()
