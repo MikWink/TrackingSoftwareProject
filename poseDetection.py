@@ -34,7 +34,7 @@ mp_hands = mp.solutions.hands
 font = cv2.FONT_HERSHEY_SIMPLEX
 
 def setup_webcam():
-    cap = cv2.VideoCapture(0, cv2.CAP_ANY)
+    cap = cv2.VideoCapture(1)
     
     fps = 60
     cap.set(cv2.CAP_PROP_FPS, fps)
@@ -44,6 +44,12 @@ def setup_webcam():
     cv2.resizeWindow("Webcam Feed", camWidth, camHeight)
     cap.set(cv2.CAP_PROP_FORMAT, 0)
     cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    cap.set(cv2.CAP_PROP_EXPOSURE, -6)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
+    cap.set(cv2.CAP_PROP_APERTURE, 7)
+    cap.set(cv2.CAP_PROP_BRIGHTNESS, 0)
+    #cap.set(cv2.CAP_PROP_SATURATION, 50)
+    cap.set(cv2.CAP_PROP_CONTRAST, 15)
     return cap
 
 def setup_osc_client(ip, port):
@@ -99,9 +105,9 @@ def process_frame(frame, hands, client, points, prev_frame_time, hand_detected_t
     if results.multi_hand_landmarks:
         for num, hand in enumerate(results.multi_hand_landmarks):
             print(num)
-            #mp_drawing.draw_landmarks(image, hand, mp_hands.HAND_CONNECTIONS,
-                                      #mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),
-                                      #amp_drawing.DrawingSpec(color=colors[num], thickness=2, circle_radius=2))
+            mp_drawing.draw_landmarks(image, hand, mp_hands.HAND_CONNECTIONS,
+                                      mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),
+                                      mp_drawing.DrawingSpec(color=colors[num], thickness=2, circle_radius=2))
 
             # Save coordinates of the tip of the index finger
             indexPos = [0, 0]
@@ -113,11 +119,11 @@ def process_frame(frame, hands, client, points, prev_frame_time, hand_detected_t
             thumbY = hand.landmark[mp_hands.HandLandmark.THUMB_TIP].y
 
              # Recognition of click gesture
-            if indexPos[0] - tolerance <= thumbX <= indexPos[0] + tolerance and indexPos[1] - tolerance <= thumbY <= indexPos[1] + tolerance:
-                cv2.putText(image, 'Click', (10, 90), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
-                click = True
-            else:
-                click = False
+            #if indexPos[0] - tolerance <= thumbX <= indexPos[0] + tolerance and indexPos[1] - tolerance <= thumbY <= indexPos[1] + tolerance:
+                #cv2.putText(image, 'Click', (10, 90), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+                #click = True
+            #else:
+                #click = False
             OSCAddress = "/player" + str(num + 1)
             client.send_message(OSCAddress, indexPos)
             OSCAddress = "/click" + str(num + 1)
@@ -134,19 +140,17 @@ def process_frame(frame, hands, client, points, prev_frame_time, hand_detected_t
     cv2.imshow("Webcam Feed", image)
     return results.multi_hand_landmarks
 
-def do_the_handtracking(client):
+def do_the_handtracking(client, cap, hands):
     
 
-    # Initialize components
-    cap = setup_webcam()
-    hands = initialize_hands()
+    
     
 
     cv2.setMouseCallback("Webcam Feed", draw_rect, points2)
     hand_detected_time = time.time()
     while cap.isOpened():
         ret, frame = cap.read()
-        frame = cv2.flip(frame, 0)
+        frame = cv2.flip(frame, 1)
         if ret:
             if len(points2) == 4:
                 src_points = []
@@ -163,7 +167,7 @@ def do_the_handtracking(client):
             prev_frame_time = time.time()
             if process_frame(frame, hands, client, points2, prev_frame_time, hand_detected_time):
                 hand_detected_time = time.time()
-            if (time.time() - hand_detected_time) > 10:
+            if (time.time() - hand_detected_time) > 30:
                 break 
             
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -172,19 +176,22 @@ def do_the_handtracking(client):
                 cv2.imwrite("bild.jpg", frame)
                 print("Picture taken...")
 
-    cap.release()
-    cv2.destroyWindow("Webcam Feed")
+    
 
 def main():
     # Constants
-    ip = "192.168.178.56"
+    ip = "192.168.178.69"
     port = 1234
+
+    # Initialize components
+    cap = setup_webcam()
+    hands = initialize_hands()
     
     client = setup_osc_client(ip, port)
     mp_pose = mp.solutions.pose
 
     # Initialize cameras
-    cap1 = cv2.VideoCapture(1)  # First camera
+    cap1 = cv2.VideoCapture(0)  # First camera
     cap1.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     cap1.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
@@ -201,7 +208,7 @@ def main():
         while True:
             # Read frames from both cameras
             ret1, frame1 = cap1.read()  # First camera
-
+            frame1 = cv2.flip(frame1, 0)
             if not ret1:
                 break
 
@@ -220,7 +227,7 @@ def main():
                 if close_window1:
                     cv2.destroyWindow('Human Detection')
                     close_window1 = False
-                do_the_handtracking(client)
+                do_the_handtracking(client, cap, hands)
                 close_window2 = True
             else:
                 client.send_message("/screen1", True)
@@ -236,6 +243,7 @@ def main():
 
     # Release the cameras and close windows
     cap1.release()
+    cap.release()
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
